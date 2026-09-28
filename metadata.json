@@ -1,0 +1,6 @@
+{
+  "name": "Boss Timer Pro - ระบบจับเวลาบอสและแจ้งเตือนกิลด์",
+  "description": "ระบบแจ้งเตือนและบันทึกเวลาบอสเกิด เชื่อมต่อ Google Sheets แจ้งเตือนผ่าน Discord, LINE และเสียงพูดภาษาไทย รองรับเซิร์ฟหลักและเซิร์ฟรองแบบเรียลไทม์",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
