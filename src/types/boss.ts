@@ -53,6 +53,8 @@ export interface SheetConfig {
   gid: string;
   mainGid: string; // '1587945636'
   subGid: string;  // '82332950'
+  mainTabName?: string; // 'Boss Time T3'
+  subTabName?: string;  // 'BossTime_invasion'
   autoSync: boolean;
   syncIntervalSeconds: number;
   lastSyncedAt: string | null;

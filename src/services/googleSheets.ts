@@ -127,36 +127,46 @@ function parseDateParts(dateStr: string): { year: number; month: number; day: nu
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /**
- * Write Boss records to Google Sheets (MANDATORY User Confirmation handled by caller)
- * Matching user's exact sheet layout:
- * Column A: Name
- * Column B: Hr.
- * Column C: วันที่ตาย
- * Column D: ชม
- * Column E: นาที
- * Column F: Update
- * Column G: Respawn GMT+7
- * Column H: Respawn GMT+8
- * Column I: เรียงบอส
- * Column J: วันที่เเละเวลาเกิดของบอส
- * Column K: SV.
+ * Build 2D array matching exact Google Sheets layout:
+ * Column A (0):  ลำดับ / Boss Number (เช่น 25, 24, 21, 13...)
+ * Column B (1):  Name (ชื่อบอส)
+ * Column C (2):  Hr. (รอบเวลาเกิดเป็น ชม.)
+ * Column D (3):  วันที่ตาย (DD/MM/YYYY)
+ * Column E (4):  ชม (ชั่วโมงที่ตาย 0-23)
+ * Column F (5):  นาที (นาทีที่ตาย 0-59)
+ * Column G (6):  Update (checkbox: FALSE)
+ * Column H (7):  Respawn GMT+7 (HH:mm)
+ * Column I (8):  Respawn GMT+8 (HH:mm)
+ * Column J (9):  เรียงบอส (นาทีคงเหลือ หรือค่าคำนวณ)
+ * Column K (10): วันที่เเละเวลาเกิดของบอส (DD/MM/YYYY HH:mm)
+ * Column L (11): SV. (T3, Invasion, etc.)
  */
-export async function writeBossesToGoogleSheet(sheetId: string, bosses: Boss[], range = 'A1:K'): Promise<boolean> {
-  const token = await getAccessToken();
-  if (!token) {
-    throw new Error('กรุณาเข้าสู่ระบบด้วยบัญชี Google เพื่อบันทึกข้อมูลลงชีต');
-  }
-
-  // Header row
+function buildSheetRows(bossList: Boss[]): (string | number)[][] {
+  // Row 1: Header row (Col A is blank, Col B is Name, ..., Col L is SV.)
   const rows: (string | number)[][] = [
-    ['Name', 'Hr.', 'วันที่ตาย', 'ชม', 'นาที', 'Update', 'Respawn GMT+7', 'Respawn GMT+8', 'เรียงบอส', 'วันที่เเละเวลาเกิดของบอส', 'SV.'],
+    [
+      '',
+      'Name',
+      'Hr.',
+      'วันที่ตาย',
+      'ชม',
+      'นาที',
+      'Update',
+      'Respawn GMT+7',
+      'Respawn GMT+8',
+      'เรียงบอส',
+      'วันที่เเละเวลาเกิดของบอส',
+      'SV.',
+    ],
   ];
 
   const nowMs = Date.now();
 
-  bosses.forEach(b => {
+  bossList.forEach((b, index) => {
+    // Preserve boss number or fallback to index
+    const bossNum = b.bossNumber !== undefined ? b.bossNumber : (index + 1);
     const respawnHours = (b.respawnMinutes / 60).toFixed(1).replace(/\.0$/, '');
-    const serverLabel = b.serverTag || (b.server === 'main' ? 'T3' : 'S1');
+    const serverLabel = b.serverTag || (b.server === 'main' ? 'T3' : 'Invasion');
 
     let deathDateStr = '';
     let deathHourStr = '';
@@ -222,37 +232,92 @@ export async function writeBossesToGoogleSheet(sheetId: string, bosses: Boss[], 
     }
 
     rows.push([
-      b.name,
-      respawnHours,
-      deathDateStr,
-      deathHourStr,
-      deathMinStr,
-      'FALSE',
-      respawnGmt7,
-      respawnGmt8,
-      minutesLeftStr,
-      fullSpawnStr,
-      serverLabel,
+      bossNum,        // Col A: ลำดับบอส
+      b.name,         // Col B: Name
+      respawnHours,   // Col C: Hr.
+      deathDateStr,   // Col D: วันที่ตาย
+      deathHourStr,   // Col E: ชม
+      deathMinStr,    // Col F: นาที
+      'FALSE',        // Col G: Update
+      respawnGmt7,    // Col H: Respawn GMT+7
+      respawnGmt8,    // Col I: Respawn GMT+8
+      minutesLeftStr, // Col J: เรียงบอส
+      fullSpawnStr,   // Col K: วันที่เเละเวลาเกิดของบอส
+      serverLabel,    // Col L: SV.
     ]);
   });
 
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      range,
-      majorDimension: 'ROWS',
-      values: rows,
-    }),
-  });
+  return rows;
+}
 
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData?.error?.message || `เกิดข้อผิดพลาดในการบันทึกลงชีต (${res.status})`);
+/**
+ * Write Boss records to Google Sheets (MANDATORY User Confirmation handled by caller)
+ * Matching user's exact sheet layout:
+ * Column A: ลำดับบอส (25, 24, 21...)
+ * Column B: Name
+ * Column C: Hr.
+ * Column D: วันที่ตาย
+ * Column E: ชม
+ * Column F: นาที
+ * Column G: Update
+ * Column H: Respawn GMT+7
+ * Column I: Respawn GMT+8
+ * Column J: เรียงบอส
+ * Column K: วันที่เเละเวลาเกิดของบอส
+ * Column L: SV.
+ */
+export async function writeBossesToGoogleSheet(
+  sheetId: string, 
+  bosses: Boss[], 
+  targetServer: 'main' | 'sub' | 'all' = 'main',
+  customTabName?: string
+): Promise<boolean> {
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error('กรุณาเข้าสู่ระบบด้วยบัญชี Google เพื่อบันทึกข้อมูลลงชีต');
+  }
+
+  const writeTab = async (tabName: string, bossList: Boss[]) => {
+    if (!bossList || bossList.length === 0) return;
+    const rows = buildSheetRows(bossList);
+    const range = `'${tabName}'!A1:L${rows.length}`;
+
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        range,
+        majorDimension: 'ROWS',
+        values: rows,
+      }),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData?.error?.message || `เกิดข้อผิดพลาดในการบันทึกลงชีตแท็บ ${tabName} (${res.status})`);
+    }
+  };
+
+  if (targetServer === 'all') {
+    const mainBosses = bosses.filter(b => b.server === 'main');
+    const subBosses = bosses.filter(b => b.server === 'sub');
+    if (mainBosses.length > 0) {
+      await writeTab('Boss Time T3', mainBosses);
+    }
+    if (subBosses.length > 0) {
+      await writeTab('BossTime_invasion', subBosses);
+    }
+  } else if (targetServer === 'sub') {
+    const subBosses = bosses.filter(b => b.server === 'sub');
+    await writeTab(customTabName || 'BossTime_invasion', subBosses.length > 0 ? subBosses : bosses);
+  } else {
+    // main server
+    const mainBosses = bosses.filter(b => b.server === 'main');
+    await writeTab(customTabName || 'Boss Time T3', mainBosses.length > 0 ? mainBosses : bosses);
   }
 
   return true;
@@ -456,26 +521,33 @@ export function convertSheetRowsToBosses(rows: string[][], fallbackServer: 'main
 export async function writeRebootTimeToGoogleSheet(
   sheetId: string, 
   rebootTimeStr: string, 
-  range = 'N2:N2'
+  targetServer: 'main' | 'sub' | 'all' = 'main'
 ): Promise<boolean> {
   const token = await getAccessToken();
   if (!token) return false;
 
+  const tabs: string[] = [];
+  if (targetServer === 'main' || targetServer === 'all') tabs.push('Boss Time T3');
+  if (targetServer === 'sub' || targetServer === 'all') tabs.push('BossTime_invasion');
+
   try {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        range,
-        majorDimension: 'ROWS',
-        values: [[rebootTimeStr]],
-      }),
-    });
-    return res.ok;
+    for (const tab of tabs) {
+      const range = `'${tab}'!N2:N2`;
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+      await fetch(url, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          range,
+          majorDimension: 'ROWS',
+          values: [[rebootTimeStr]],
+        }),
+      });
+    }
+    return true;
   } catch (err) {
     console.warn('writeRebootTimeToGoogleSheet error:', err);
     return false;

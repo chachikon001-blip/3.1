@@ -141,7 +141,7 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
         ? bosses 
         : bosses.filter(b => b.server === targetExportServer);
 
-      await writeBossesToGoogleSheet(sheetId, bossesToWrite);
+      await writeBossesToGoogleSheet(sheetId, bossesToWrite, targetExportServer);
 
       onUpdateSheetConfig({ 
         sheetId, 
