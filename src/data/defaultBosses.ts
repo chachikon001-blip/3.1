@@ -62,65 +62,11 @@ export const rawBossList = [
   { num: 24, name: 'แอนทารัส - Antharas', location: 'หุบเขามังกร', respawn: 2880, level: 85, drops: ['ต่างหูแอนทารัส', 'กระดูกมังกร'], pinned: false },
 ];
 
+import bossesSeed from './bosses_seed.json';
+
 export function createInitialBosses(): Boss[] {
-  const now = Date.now();
-  const bosses: Boss[] = [];
-
-  // Generate for Main Server
-  rawBossList.forEach((b, idx) => {
-    // Generate realistic sample offsets so some are overdue (like in image: 11:42 น. เกิดแล้ว +6 ชม.), some are upcoming
-    let offsetMinutes: number;
-    if (idx < 5) {
-      // Like the screenshot: spawned around 11:42 (past time)
-      offsetMinutes = -(idx * 2 + 10);
-    } else {
-      offsetMinutes = (idx - 4) * 35;
-    }
-
-    const nextSpawn = new Date(now + offsetMinutes * 60 * 1000).toISOString();
-    const lastKilled = new Date(now + (offsetMinutes - b.respawn) * 60 * 1000).toISOString();
-
-    bosses.push({
-      id: `main-${b.num}-${idx + 1}`,
-      name: b.name,
-      bossNumber: b.num,
-      server: 'main',
-      serverTag: 'T3',
-      location: b.location,
-      respawnMinutes: b.respawn,
-      level: b.level,
-      lastKilledAt: lastKilled,
-      nextSpawnAt: nextSpawn,
-      killedBy: idx % 2 === 0 ? 'Admin' : 'GuildMember',
-      notifiedStages: [],
-      dropItems: b.drops,
-      pinned: b.pinned,
-    });
-  });
-
-  // Generate for Sub Server
-  rawBossList.forEach((b, idx) => {
-    const offsetMinutes = (idx * 40) - 15;
-    const nextSpawn = new Date(now + offsetMinutes * 60 * 1000).toISOString();
-    const lastKilled = new Date(now + (offsetMinutes - b.respawn) * 60 * 1000).toISOString();
-
-    bosses.push({
-      id: `sub-${b.num}-${idx + 1}`,
-      name: b.name,
-      bossNumber: b.num,
-      server: 'sub',
-      serverTag: 'S1',
-      location: b.location,
-      respawnMinutes: b.respawn,
-      level: b.level,
-      lastKilledAt: lastKilled,
-      nextSpawnAt: nextSpawn,
-      killedBy: 'GuildSub',
-      notifiedStages: [],
-      dropItems: b.drops,
-      pinned: idx < 2,
-    });
-  });
-
-  return bosses;
+  return (bossesSeed as Boss[]).map((b) => ({
+    ...b,
+    notifiedStages: b.notifiedStages || [],
+  }));
 }

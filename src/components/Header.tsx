@@ -14,9 +14,12 @@ import {
   Flame,
   Volume2,
   VolumeX,
-  RotateCcw
+  RotateCcw,
+  Share2,
+  Check
 } from 'lucide-react';
 import { UserAccount } from '../types/boss';
+import { getLiveShareUrl } from '../services/apiConfig';
 
 interface HeaderProps {
   currentUser: UserAccount | null;

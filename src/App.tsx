@@ -35,11 +35,14 @@ import {
 } from './services/offlineSync';
 import { formatRemainingTime } from './utils/time';
 import { Shield, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
+import { getApiUrl, getLiveShareUrl } from './services/apiConfig';
 
 export default function App() {
   // Core Data States
   const [bosses, setBosses] = useState<Boss[]>(() => {
-    return loadLocalCache() || createInitialBosses();
+    const cached = loadLocalCache();
+    if (cached && cached.length >= 90) return cached;
+    return createInitialBosses();
   });
   const [users, setUsers] = useState<UserAccount[]>([INITIAL_ADMIN_USER]);
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS);
@@ -161,7 +164,7 @@ export default function App() {
 
     const fetchServerState = async () => {
       try {
-        const res = await fetch('/api/state');
+        const res = await fetch(getApiUrl('/api/state'));
         if (res.ok) {
           const text = await res.text();
           const data = text ? JSON.parse(text) : null;
@@ -185,7 +188,7 @@ export default function App() {
         if (eventSource) {
           eventSource.close();
         }
-        eventSource = new EventSource('/api/realtime/stream');
+        eventSource = new EventSource(getApiUrl('/api/realtime/stream'));
 
         eventSource.addEventListener('initial_state', (e) => {
           try {
@@ -362,7 +365,7 @@ export default function App() {
       const queue = getOfflineQueue();
       if (queue.length > 0) {
         try {
-          await fetch('/api/bosses/sync-batch', {
+          await fetch(getApiUrl('/api/bosses/sync-batch'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ bosses }),
@@ -480,7 +483,7 @@ export default function App() {
 
     if (navigator.onLine) {
       try {
-        await fetch('/api/bosses/kill', {
+        await fetch(getApiUrl('/api/bosses/kill'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -513,7 +516,7 @@ export default function App() {
 
     if (navigator.onLine) {
       try {
-        await fetch('/api/bosses/update', {
+        await fetch(getApiUrl('/api/bosses/update'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updated),
@@ -549,7 +552,7 @@ export default function App() {
 
     if (navigator.onLine) {
       try {
-        await fetch(`/api/bosses/${bossId}`, { method: 'DELETE' });
+        await fetch(getApiUrl(`/api/bosses/${bossId}`), { method: 'DELETE' });
       } catch {
         queueOfflineAction({ type: 'delete_boss', payload: { id: bossId } });
       }
@@ -565,7 +568,7 @@ export default function App() {
     notes?: string;
   }) => {
     try {
-      const res = await fetch('/api/bosses', {
+      const res = await fetch(getApiUrl('/api/bosses'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -620,7 +623,7 @@ export default function App() {
     }
 
     try {
-      await fetch('/api/settings', {
+      await fetch(getApiUrl('/api/settings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newSettings),
@@ -655,7 +658,7 @@ export default function App() {
     });
 
     try {
-      await fetch('/api/settings/server-tag', {
+      await fetch(getApiUrl('/api/settings/server-tag'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ server, newTag: cleanTag }),
@@ -714,7 +717,7 @@ export default function App() {
   const handleUpdateSheetConfig = async (config: Partial<SheetConfig>) => {
     setSheetConfig((prev) => ({ ...prev, ...config }));
     try {
-      await fetch('/api/sheet-config', {
+      await fetch(getApiUrl('/api/sheet-config'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
@@ -728,7 +731,7 @@ export default function App() {
     setBosses(imported);
     saveLocalCache(imported);
     try {
-      await fetch('/api/bosses/sync-batch', {
+      await fetch(getApiUrl('/api/bosses/sync-batch'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bosses: imported, override: true }),
@@ -741,7 +744,7 @@ export default function App() {
   // User Accounts
   const handleLoginGuildUser = async (username: string, pass: string): Promise<boolean> => {
     try {
-      const res = await fetch('/api/users/login', {
+      const res = await fetch(getApiUrl('/api/users/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password: pass }),
@@ -770,7 +773,7 @@ export default function App() {
 
   const handleRegisterUser = async (data: { username: string; displayName: string; password?: string }): Promise<boolean> => {
     try {
-      const res = await fetch('/api/users/create', {
+      const res = await fetch(getApiUrl('/api/users/create'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...data, role: 'member' }),
@@ -798,7 +801,7 @@ export default function App() {
   };
 
   const handleCreateUserByAdmin = async (data: { username: string; displayName: string; role: 'admin' | 'member'; password?: string }) => {
-    const res = await fetch('/api/users/create', {
+    const res = await fetch(getApiUrl('/api/users/create'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -820,7 +823,7 @@ export default function App() {
 
   const handleUpdateUserByAdmin = async (userId: string, data: Partial<UserAccount>) => {
     try {
-      await fetch('/api/users/update', {
+      await fetch(getApiUrl('/api/users/update'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, ...data }),
@@ -833,7 +836,7 @@ export default function App() {
 
   const handleDeleteUserByAdmin = async (userId: string) => {
     try {
-      await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+      await fetch(getApiUrl(`/api/users/${userId}`), { method: 'DELETE' });
     } catch (e) {
       console.warn('Delete user error:', e);
     }
@@ -841,7 +844,7 @@ export default function App() {
   };
 
   const handleRestoreBackup = async (data: Partial<AppStateData>) => {
-    await fetch('/api/restore', {
+    await fetch(getApiUrl('/api/restore'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),

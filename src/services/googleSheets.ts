@@ -1,6 +1,7 @@
 import { Boss } from '../types/boss';
 import { getAccessToken } from './firebase';
 import { rawBossList } from '../data/defaultBosses';
+import { getApiUrl } from './apiConfig';
 
 export interface SheetRowData {
   name: string;
@@ -16,7 +17,7 @@ export interface SheetRowData {
  */
 export async function fetchPublicGoogleSheet(sheetId: string, gid = '0'): Promise<string[][]> {
   const urls = [
-    `/api/sheets/proxy?sheetId=${encodeURIComponent(sheetId)}&gid=${encodeURIComponent(gid)}`,
+    getApiUrl(`/api/sheets/proxy?sheetId=${encodeURIComponent(sheetId)}&gid=${encodeURIComponent(gid)}`),
     `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`,
     `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`
   ];

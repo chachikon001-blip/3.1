@@ -21,6 +21,7 @@ import {
 } from '../services/rebootRules';
 import { writeBossesToGoogleSheet, writeRebootTimeToGoogleSheet } from '../services/googleSheets';
 import { getAccessToken } from '../services/firebase';
+import { getApiUrl } from '../services/apiConfig';
 
 interface ServerRebootModalProps {
   isOpen: boolean;
@@ -218,7 +219,7 @@ export const ServerRebootModal: React.FC<ServerRebootModalProps> = ({
       }
 
       // 3. Send to Server API
-      const response = await fetch('/api/server/reboot', {
+      const response = await fetch(getApiUrl('/api/server/reboot'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

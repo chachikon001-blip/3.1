@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { writeBossesToGoogleSheet } from '../services/googleSheets';
 import { getAccessToken } from '../services/firebase';
+import { getApiUrl } from '../services/apiConfig';
 
 interface ResetAllTimesModalProps {
   isOpen: boolean;
@@ -63,7 +64,7 @@ export const ResetAllTimesModal: React.FC<ResetAllTimesModalProps> = ({
 
     try {
       // 1. Call server API
-      const res = await fetch('/api/bosses/reset-times', {
+      const res = await fetch(getApiUrl('/api/bosses/reset-times'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
