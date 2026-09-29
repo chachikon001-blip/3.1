@@ -26,7 +26,6 @@ import { AdminModal } from './components/AdminModal';
 import { AuthModal } from './components/AuthModal';
 import { NotificationToast, AlertNotification } from './components/NotificationToast';
 import { playBossAlert } from './services/audio';
-import { initAuth, googleSignIn, logoutGoogle } from './services/firebase';
 import { 
   getOfflineQueue, 
   queueOfflineAction, 
@@ -35,7 +34,6 @@ import {
   loadLocalCache 
 } from './services/offlineSync';
 import { formatRemainingTime } from './utils/time';
-import { User as FirebaseUser } from 'firebase/auth';
 import { Shield, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function App() {
@@ -56,16 +54,75 @@ export default function App() {
       return INITIAL_ADMIN_USER;
     }
   });
-  const [googleUser, setGoogleUser] = useState<FirebaseUser | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
 
-  // Filtering & View States
-  const [currentTab, setCurrentTab] = useState<'main' | 'sub' | 'all'>('all');
+  // Filtering & View States with localStorage persistence
+  const [currentTab, setCurrentTab] = useState<'main' | 'sub' | 'all'>(() => {
+    try {
+      const saved = localStorage.getItem('boss_timer_current_tab');
+      return (saved as 'main' | 'sub' | 'all') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'soon' | 'alive' | 'pending'>('all');
-  const [sortBy, setSortBy] = useState<'next_spawn' | 'name' | 'respawn'>('next_spawn');
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'soon' | 'alive' | 'pending'>(() => {
+    try {
+      const saved = localStorage.getItem('boss_timer_status_filter');
+      return (saved as 'all' | 'soon' | 'alive' | 'pending') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  const [sortBy, setSortBy] = useState<'next_spawn' | 'name' | 'respawn'>(() => {
+    try {
+      const saved = localStorage.getItem('boss_timer_sort_by');
+      return (saved as 'next_spawn' | 'name' | 'respawn') || 'next_spawn';
+    } catch {
+      return 'next_spawn';
+    }
+  });
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>(() => {
+    try {
+      const saved = localStorage.getItem('boss_timer_view_mode');
+      return (saved as 'table' | 'grid') || 'table';
+    } catch {
+      return 'table';
+    }
+  });
+
+  // Sync view preferences to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('boss_timer_current_tab', currentTab);
+    } catch {}
+  }, [currentTab]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('boss_timer_view_mode', viewMode);
+    } catch {}
+  }, [viewMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('boss_timer_status_filter', statusFilter);
+    } catch {}
+  }, [statusFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('boss_timer_sort_by', sortBy);
+    } catch {}
+  }, [sortBy]);
+
+  // Always keep local cache synced whenever bosses change
+  useEffect(() => {
+    if (bosses && bosses.length > 0) {
+      saveLocalCache(bosses);
+    }
+  }, [bosses]);
 
   // Modals
   const [editingBoss, setEditingBoss] = useState<Boss | null>(null);
@@ -96,171 +153,205 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // Firebase Auth initialization
-  useEffect(() => {
-    const unsubscribe = initAuth(
-      (user) => {
-        setGoogleUser(user);
-      },
-      () => {
-        setGoogleUser(null);
-      }
-    );
-    return () => {
-      if (typeof unsubscribe === 'function') unsubscribe();
-    };
-  }, []);
-
   // Realtime SSE / Polling sync
   useEffect(() => {
     let eventSource: EventSource | null = null;
-    let fallbackInterval: NodeJS.Timeout | null = null;
-
-    const connectSSE = () => {
-      try {
-        eventSource = new EventSource('/api/realtime/stream');
-
-        eventSource.addEventListener('initial_state', (e) => {
-          const data = JSON.parse(e.data);
-          if (data.bosses) setBosses(data.bosses);
-          if (data.users) setUsers(data.users);
-          if (data.settings) setSettings(data.settings);
-          if (data.sheetConfig) setSheetConfig(data.sheetConfig);
-          saveLocalCache(data.bosses);
-          setIsOnline(true);
-        });
-
-        eventSource.addEventListener('state_update', (e) => {
-          const data = JSON.parse(e.data);
-          if (data.bosses) {
-            setBosses(data.bosses);
-            saveLocalCache(data.bosses);
-          }
-          if (data.users) setUsers(data.users);
-          if (data.settings) setSettings(data.settings);
-          if (data.sheetConfig) setSheetConfig(data.sheetConfig);
-        });
-
-        eventSource.addEventListener('boss_alert', (e) => {
-          const { boss, stage, message } = JSON.parse(e.data);
-          const serverLabel = boss.serverTag || (boss.server === 'main' ? 'T3' : 'S1');
-          addNotification({
-            id: `alert-${boss.id}-${stage}-${Date.now()}`,
-            type: 'boss_alert',
-            title: `🚨 แจ้งเตือนบอสเกิด (${stage} นาที)`,
-            message: message || `${boss.name} ${serverLabel} กำลังจะเกิดในอีก ${stage} นาที!`,
-            server: boss.server,
-            timestamp: Date.now(),
-          });
-
-          // Play Sound with custom server tag (e.g. "บัลโบ T3 กำลังจะเกิดในอีก 5 นาที") if enabled
-          if (settings.enabled) {
-            playBossAlert(
-              settings.soundType,
-              settings.soundVolume,
-              settings.customSoundUrl,
-              {
-                name: boss.name,
-                server: boss.server,
-                serverTag: serverLabel,
-                minutesLeft: stage,
-              },
-              settings.ttsLanguage || 'thai_only',
-              settings.ttsSpeed || 1.05
-            );
-          }
-
-          // Desktop Web Push
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(`⚔️ แจ้งเตือนบอสเกิด (${stage} นาที)`, {
-              body: `${boss.name} ${serverLabel} กำลังจะเกิดในอีก ${stage} นาที!`,
-              icon: '/favicon.ico',
-            });
-          }
-        });
-
-        eventSource.addEventListener('boss_killed', (e) => {
-          const { boss, killedBy } = JSON.parse(e.data);
-          addNotification({
-            id: `kill-${boss.id}-${Date.now()}`,
-            type: 'boss_killed',
-            title: `💀 บอสถูกสังหารแล้ว`,
-            message: `${boss.name} บันทึกเวลาตายโดย ${killedBy || 'สมาชิก'}`,
-            server: boss.server,
-            timestamp: Date.now(),
-          });
-        });
-
-        eventSource.addEventListener('server_reboot', (e) => {
-          const { message, bosses: updatedBosses, rebootedBy } = JSON.parse(e.data);
-          if (updatedBosses && Array.isArray(updatedBosses)) {
-            setBosses(updatedBosses);
-            saveLocalCache(updatedBosses);
-          }
-          addNotification({
-            id: `reboot-${Date.now()}`,
-            type: 'success',
-            title: '⚡ เซิร์ฟเวอร์รีบูทเสร็จสิ้น',
-            message: message || `รีเซ็ตเวลาบอสตามตารางรีบูทโดย ${rebootedBy || 'สมาชิก'}`,
-            timestamp: Date.now(),
-          });
-        });
-
-        eventSource.addEventListener('boss_times_reset', (e) => {
-          const { message, bosses: updatedBosses, resetBy } = JSON.parse(e.data);
-          if (updatedBosses && Array.isArray(updatedBosses)) {
-            setBosses(updatedBosses);
-            saveLocalCache(updatedBosses);
-          }
-          addNotification({
-            id: `reset-all-${Date.now()}`,
-            type: 'success',
-            title: '↺ รีเซ็ตเวลาบอสเป็น --:--',
-            message: message || `รีเซ็ตเวลาเกิดบอสกลับเป็น --:-- โดย ${resetBy || 'สมาชิก'}`,
-            timestamp: Date.now(),
-          });
-        });
-
-        eventSource.addEventListener('users_update', (e) => {
-          const u = JSON.parse(e.data);
-          setUsers(u);
-        });
-
-        eventSource.onerror = () => {
-          eventSource?.close();
-          // Fallback to polling
-          if (!fallbackInterval) {
-            fallbackInterval = setInterval(fetchServerState, 5000);
-          }
-        };
-      } catch {
-        // Fallback polling
-        fallbackInterval = setInterval(fetchServerState, 5000);
-      }
-    };
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    let isComponentMounted = true;
 
     const fetchServerState = async () => {
       try {
         const res = await fetch('/api/state');
         if (res.ok) {
-          const data = await res.json();
-          if (data.bosses) setBosses(data.bosses);
-          if (data.users) setUsers(data.users);
-          if (data.settings) setSettings(data.settings);
-          if (data.sheetConfig) setSheetConfig(data.sheetConfig);
-          saveLocalCache(data.bosses);
-          setIsOnline(true);
+          const text = await res.text();
+          const data = text ? JSON.parse(text) : null;
+          if (data) {
+            if (data.bosses) setBosses(data.bosses);
+            if (data.users) setUsers(data.users);
+            if (data.settings) setSettings(data.settings);
+            if (data.sheetConfig) setSheetConfig(data.sheetConfig);
+            saveLocalCache(data.bosses);
+            setIsOnline(true);
+          }
         }
       } catch {
         setIsOnline(false);
       }
     };
 
+    const connectSSE = () => {
+      if (!isComponentMounted) return;
+      try {
+        if (eventSource) {
+          eventSource.close();
+        }
+        eventSource = new EventSource('/api/realtime/stream');
+
+        eventSource.addEventListener('initial_state', (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.bosses) setBosses(data.bosses);
+            if (data.users) setUsers(data.users);
+            if (data.settings) setSettings(data.settings);
+            if (data.sheetConfig) setSheetConfig(data.sheetConfig);
+            saveLocalCache(data.bosses);
+            setIsOnline(true);
+          } catch (err) {
+            console.error('SSE initial_state parse error:', err);
+          }
+        });
+
+        eventSource.addEventListener('state_update', (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.bosses) {
+              setBosses(data.bosses);
+              saveLocalCache(data.bosses);
+            }
+            if (data.users) setUsers(data.users);
+            if (data.settings) setSettings(data.settings);
+            if (data.sheetConfig) setSheetConfig(data.sheetConfig);
+            setIsOnline(true);
+          } catch (err) {
+            console.error('SSE state_update parse error:', err);
+          }
+        });
+
+        eventSource.addEventListener('boss_alert', (e) => {
+          try {
+            const { boss, stage, message } = JSON.parse(e.data);
+            const serverLabel = boss.serverTag || (boss.server === 'main' ? 'T3' : 'S1');
+            addNotification({
+              id: `alert-${boss.id}-${stage}-${Date.now()}`,
+              type: 'boss_alert',
+              title: `🚨 แจ้งเตือนบอสเกิด (${stage} นาที)`,
+              message: message || `${boss.name} ${serverLabel} กำลังจะเกิดในอีก ${stage} นาที!`,
+              server: boss.server,
+              timestamp: Date.now(),
+            });
+
+            // Play Sound with custom server tag (e.g. "บัลโบ T3 กำลังจะเกิดในอีก 5 นาที") if enabled
+            if (settings.enabled) {
+              playBossAlert(
+                settings.soundType,
+                settings.soundVolume,
+                settings.customSoundUrl,
+                {
+                  name: boss.name,
+                  server: boss.server,
+                  serverTag: serverLabel,
+                  minutesLeft: stage,
+                },
+                settings.ttsLanguage || 'thai_only',
+                settings.ttsSpeed || 1.05
+              );
+            }
+
+            // Desktop Web Push
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(`⚔️ แจ้งเตือนบอสเกิด (${stage} นาที)`, {
+                body: `${boss.name} ${serverLabel} กำลังจะเกิดในอีก ${stage} นาที!`,
+                icon: '/favicon.ico',
+              });
+            }
+          } catch (err) {
+            console.error('SSE alert parse error:', err);
+          }
+        });
+
+        eventSource.addEventListener('boss_killed', (e) => {
+          try {
+            const { boss, killedBy } = JSON.parse(e.data);
+            addNotification({
+              id: `kill-${boss.id}-${Date.now()}`,
+              type: 'boss_killed',
+              title: `💀 บอสถูกสังหารแล้ว`,
+              message: `${boss.name} บันทึกเวลาตายโดย ${killedBy || 'สมาชิก'}`,
+              server: boss.server,
+              timestamp: Date.now(),
+            });
+          } catch (err) {
+            console.error('SSE boss_killed parse error:', err);
+          }
+        });
+
+        eventSource.addEventListener('server_reboot', (e) => {
+          try {
+            const { message, bosses: updatedBosses, rebootedBy } = JSON.parse(e.data);
+            if (updatedBosses && Array.isArray(updatedBosses)) {
+              setBosses(updatedBosses);
+              saveLocalCache(updatedBosses);
+            }
+            addNotification({
+              id: `reboot-${Date.now()}`,
+              type: 'success',
+              title: '⚡ เซิร์ฟเวอร์รีบูทเสร็จสิ้น',
+              message: message || `รีเซ็ตเวลาบอสตามตารางรีบูทโดย ${rebootedBy || 'สมาชิก'}`,
+              timestamp: Date.now(),
+            });
+          } catch (err) {
+            console.error('SSE server_reboot parse error:', err);
+          }
+        });
+
+        eventSource.addEventListener('boss_times_reset', (e) => {
+          try {
+            const { message, bosses: updatedBosses, resetBy } = JSON.parse(e.data);
+            if (updatedBosses && Array.isArray(updatedBosses)) {
+              setBosses(updatedBosses);
+              saveLocalCache(updatedBosses);
+            }
+            addNotification({
+              id: `reset-all-${Date.now()}`,
+              type: 'success',
+              title: '↺ รีเซ็ตเวลาบอสเป็น --:--',
+              message: message || `รีเซ็ตเวลาเกิดบอสกลับเป็น --:-- โดย ${resetBy || 'สมาชิก'}`,
+              timestamp: Date.now(),
+            });
+          } catch (err) {
+            console.error('SSE boss_times_reset parse error:', err);
+          }
+        });
+
+        eventSource.addEventListener('users_update', (e) => {
+          try {
+            const u = JSON.parse(e.data);
+            setUsers(u);
+          } catch (err) {
+            console.error('SSE users_update parse error:', err);
+          }
+        });
+
+        eventSource.onerror = () => {
+          eventSource?.close();
+          eventSource = null;
+          // Auto-reconnect after 3 seconds
+          if (isComponentMounted && !reconnectTimeout) {
+            reconnectTimeout = setTimeout(() => {
+              reconnectTimeout = null;
+              connectSSE();
+            }, 3000);
+          }
+        };
+      } catch {
+        if (isComponentMounted && !reconnectTimeout) {
+          reconnectTimeout = setTimeout(() => {
+            reconnectTimeout = null;
+            connectSSE();
+          }, 3000);
+        }
+      }
+    };
+
     connectSSE();
+    // Background polling every 5s ensures all devices stay 100% in sync
+    const pollInterval = setInterval(fetchServerState, 5000);
 
     return () => {
+      isComponentMounted = false;
       if (eventSource) eventSource.close();
-      if (fallbackInterval) clearInterval(fallbackInterval);
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      clearInterval(pollInterval);
     };
   }, [settings.soundType, settings.soundVolume, settings.customSoundUrl, settings.ttsLanguage, settings.ttsSpeed]);
 
@@ -338,18 +429,25 @@ export default function App() {
 
     const killerName = currentUser?.displayName || currentUser?.username || 'สมาชิก';
 
-    // เอาเวลาเกิดมา + กับรอบเกิด
+    const nowMs = Date.now();
     let newSpawnTime: Date;
     let lastKilledTime: string;
 
     if (targetBoss.nextSpawnAt) {
       const baseSpawn = new Date(targetBoss.nextSpawnAt).getTime();
-      newSpawnTime = new Date(baseSpawn + targetBoss.respawnMinutes * 60 * 1000);
-      lastKilledTime = targetBoss.nextSpawnAt;
+      let calculated = baseSpawn + targetBoss.respawnMinutes * 60 * 1000;
+      // If the calculated time has already passed, calculate from now so boss is not already overdue
+      if (calculated <= nowMs) {
+        calculated = nowMs + targetBoss.respawnMinutes * 60 * 1000;
+        lastKilledTime = new Date(nowMs).toISOString();
+      } else {
+        lastKilledTime = targetBoss.nextSpawnAt;
+      }
+      newSpawnTime = new Date(calculated);
     } else {
-      const now = new Date();
+      const now = new Date(nowMs);
       lastKilledTime = now.toISOString();
-      newSpawnTime = new Date(now.getTime() + targetBoss.respawnMinutes * 60 * 1000);
+      newSpawnTime = new Date(nowMs + targetBoss.respawnMinutes * 60 * 1000);
     }
 
     const nextSpawnIso = newSpawnTime.toISOString();
@@ -357,8 +455,8 @@ export default function App() {
     const newFormatted = newSpawnTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 
     // Optimistic Update
-    setBosses((prev) =>
-      prev.map((b) => {
+    setBosses((prev) => {
+      const next = prev.map((b) => {
         if (b.id !== bossId) return b;
         return {
           ...b,
@@ -367,8 +465,10 @@ export default function App() {
           killedBy: killerName,
           notifiedStages: [],
         };
-      })
-    );
+      });
+      saveLocalCache(next);
+      return next;
+    });
 
     addNotification({
       id: `kill-local-${Date.now()}`,
@@ -383,20 +483,33 @@ export default function App() {
         await fetch('/api/bosses/kill', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bossId, killedBy: killerName }),
+          body: JSON.stringify({ 
+            bossId, 
+            killedBy: killerName,
+            killedAt: lastKilledTime,
+            nextSpawnAt: nextSpawnIso 
+          }),
         });
       } catch {
-        queueOfflineAction({ type: 'kill_boss', payload: { bossId, killedBy: killerName } });
+        queueOfflineAction({ 
+          type: 'kill_boss', 
+          payload: { bossId, killedBy: killerName, killedAt: lastKilledTime, nextSpawnAt: nextSpawnIso } 
+        });
       }
     } else {
-      queueOfflineAction({ type: 'kill_boss', payload: { bossId, killedBy: killerName } });
+      queueOfflineAction({ 
+        type: 'kill_boss', 
+        payload: { bossId, killedBy: killerName, killedAt: lastKilledTime, nextSpawnAt: nextSpawnIso } 
+      });
     }
   };
 
   const handleSaveBoss = async (updated: Partial<Boss> & { id: string }) => {
-    setBosses((prev) =>
-      prev.map((b) => (b.id === updated.id ? { ...b, ...updated } : b))
-    );
+    setBosses((prev) => {
+      const next = prev.map((b) => (b.id === updated.id ? { ...b, ...updated } : b));
+      saveLocalCache(next);
+      return next;
+    });
 
     if (navigator.onLine) {
       try {
@@ -613,6 +726,7 @@ export default function App() {
 
   const handleImportBosses = async (imported: Boss[]) => {
     setBosses(imported);
+    saveLocalCache(imported);
     try {
       await fetch('/api/bosses/sync-batch', {
         method: 'POST',
@@ -626,31 +740,61 @@ export default function App() {
 
   // User Accounts
   const handleLoginGuildUser = async (username: string, pass: string): Promise<boolean> => {
-    const res = await fetch('/api/users/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password: pass }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setCurrentUser(data.user);
-      return true;
+    try {
+      const res = await fetch('/api/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password: pass }),
+      });
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        return false;
+      }
+      if (res.ok && data.user) {
+        setCurrentUser(data.user);
+        try {
+          localStorage.setItem('boss_timer_current_user', JSON.stringify(data.user));
+        } catch {
+          // ignore
+        }
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const handleRegisterUser = async (data: { username: string; displayName: string; password?: string }): Promise<boolean> => {
-    const res = await fetch('/api/users/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...data, role: 'member' }),
-    });
-    if (res.ok) {
-      const resData = await res.json();
-      setCurrentUser(resData.user);
-      return true;
+    try {
+      const res = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, role: 'member' }),
+      });
+      const text = await res.text();
+      let resData: any = {};
+      try {
+        resData = text ? JSON.parse(text) : {};
+      } catch {
+        return false;
+      }
+      if (res.ok && resData.user) {
+        setCurrentUser(resData.user);
+        try {
+          localStorage.setItem('boss_timer_current_user', JSON.stringify(resData.user));
+        } catch {
+          // ignore
+        }
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const handleCreateUserByAdmin = async (data: { username: string; displayName: string; role: 'admin' | 'member'; password?: string }) => {
@@ -659,25 +803,40 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'เกิดข้อผิดพลาดในการสร้าง ID');
+    const text = await res.text();
+    let resData: any = {};
+    try {
+      resData = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error('เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
     }
-    const resData = await res.json();
-    setUsers((prev) => [...prev, resData.user]);
+    if (!res.ok) {
+      throw new Error(resData.error || 'เกิดข้อผิดพลาดในการสร้าง ID ผู้ใช้');
+    }
+    if (resData.user) {
+      setUsers((prev) => [...prev.filter(u => u.id !== resData.user.id), resData.user]);
+    }
   };
 
   const handleUpdateUserByAdmin = async (userId: string, data: Partial<UserAccount>) => {
-    await fetch('/api/users/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, ...data }),
-    });
+    try {
+      await fetch('/api/users/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, ...data }),
+      });
+    } catch (e) {
+      console.warn('Update user error:', e);
+    }
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...data } : u)));
   };
 
   const handleDeleteUserByAdmin = async (userId: string) => {
-    await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+    try {
+      await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+    } catch (e) {
+      console.warn('Delete user error:', e);
+    }
     setUsers((prev) => prev.filter((u) => u.id !== userId));
   };
 
@@ -693,24 +852,9 @@ export default function App() {
     if (data.sheetConfig) setSheetConfig(data.sheetConfig);
   };
 
-  const handleGoogleSignIn = async () => {
-    const res = await googleSignIn();
-    if (res?.user) {
-      setGoogleUser(res.user);
-      addNotification({
-        id: `google-in-${Date.now()}`,
-        type: 'success',
-        title: 'เข้าสู่ระบบ Google สำเร็จ',
-        message: `เชื่อมต่อกับ ${res.user.email} พร้อมใช้งานสิทธิ์ Google Sheets`,
-        timestamp: Date.now(),
-      });
-    }
-  };
-
   const handleLogout = async () => {
-    await logoutGoogle();
-    setGoogleUser(null);
     setCurrentUser(null);
+    localStorage.removeItem('boss_timer_current_user');
     addNotification({
       id: `logout-${Date.now()}`,
       type: 'success',
@@ -787,7 +931,6 @@ export default function App() {
       {/* Header */}
       <Header
         currentUser={currentUser}
-        googleUser={googleUser}
         isOnline={isOnline}
         isDarkMode={isDarkMode}
         isSoundEnabled={settings.enabled}
@@ -940,101 +1083,115 @@ export default function App() {
       <NotificationToast notifications={notifications} onDismiss={removeNotification} />
 
       {/* Modals */}
-      <EditBossModal
-        boss={editingBoss}
-        isOpen={!!editingBoss}
-        onClose={() => setEditingBoss(null)}
-        onSave={handleSaveBoss}
-        onDelete={handleDeleteBoss}
-      />
+      {editingBoss && (
+        <EditBossModal
+          boss={editingBoss}
+          isOpen={true}
+          onClose={() => setEditingBoss(null)}
+          onSave={handleSaveBoss}
+          onDelete={handleDeleteBoss}
+        />
+      )}
 
-      <AddBossModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAdd={handleAddBoss}
-        defaultServer={currentTab === 'sub' ? 'sub' : 'main'}
-      />
+      {isAddModalOpen && (
+        <AddBossModal
+          isOpen={true}
+          onClose={() => setIsAddModalOpen(false)}
+          onAdd={handleAddBoss}
+          defaultServer={currentTab === 'sub' ? 'sub' : 'main'}
+        />
+      )}
 
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onSave={handleSaveSettings}
-      />
+      {isSettingsOpen && (
+        <SettingsModal
+          isOpen={true}
+          onClose={() => setIsSettingsOpen(false)}
+          settings={settings}
+          onSave={handleSaveSettings}
+        />
+      )}
 
-      <GoogleSheetsModal
-        isOpen={isSheetsOpen}
-        onClose={() => setIsSheetsOpen(false)}
-        sheetConfig={sheetConfig}
-        bosses={bosses}
-        onImportBosses={handleImportBosses}
-        onUpdateSheetConfig={handleUpdateSheetConfig}
-      />
+      {isSheetsOpen && (
+        <GoogleSheetsModal
+          isOpen={true}
+          onClose={() => setIsSheetsOpen(false)}
+          sheetConfig={sheetConfig}
+          bosses={bosses}
+          onImportBosses={handleImportBosses}
+          onUpdateSheetConfig={handleUpdateSheetConfig}
+        />
+      )}
 
-      <ServerRebootModal
-        isOpen={isRebootOpen}
-        onClose={() => setIsRebootOpen(false)}
-        bosses={bosses}
-        currentServer={currentTab}
-        mainServerTag={settings.mainServerTag || 'T3'}
-        subServerTag={settings.subServerTag || 'S1'}
-        sheetConfig={sheetConfig}
-        currentUserName={currentUser?.displayName || currentUser?.username || 'สมาชิก'}
-        onRebootComplete={(updatedBosses) => {
-          setBosses(updatedBosses);
-          saveLocalCache(updatedBosses);
-          addNotification({
-            id: `reboot-done-${Date.now()}`,
-            type: 'success',
-            title: '⚡ เซิร์ฟเวอร์รีบูทเสร็จสิ้น',
-            message: `รีเซ็ตเวลาบอสตามตารางรีบูท (ช่อง P) เรียบร้อยแล้ว`,
-            timestamp: Date.now(),
-          });
-        }}
-      />
+      {isRebootOpen && (
+        <ServerRebootModal
+          isOpen={true}
+          onClose={() => setIsRebootOpen(false)}
+          bosses={bosses}
+          currentServer={currentTab}
+          mainServerTag={settings.mainServerTag || 'T3'}
+          subServerTag={settings.subServerTag || 'S1'}
+          sheetConfig={sheetConfig}
+          currentUserName={currentUser?.displayName || currentUser?.username || 'สมาชิก'}
+          onRebootComplete={(updatedBosses) => {
+            setBosses(updatedBosses);
+            saveLocalCache(updatedBosses);
+            addNotification({
+              id: `reboot-done-${Date.now()}`,
+              type: 'success',
+              title: '⚡ เซิร์ฟเวอร์รีบูทเสร็จสิ้น',
+              message: `รีเซ็ตเวลาบอสตามตารางรีบูท (ช่อง P) เรียบร้อยแล้ว`,
+              timestamp: Date.now(),
+            });
+          }}
+        />
+      )}
 
-      <ResetAllTimesModal
-        isOpen={isResetAllOpen}
-        onClose={() => setIsResetAllOpen(false)}
-        bosses={bosses}
-        currentServer={currentTab}
-        mainServerTag={settings.mainServerTag || 'T3'}
-        subServerTag={settings.subServerTag || 'S1'}
-        sheetConfig={sheetConfig}
-        currentUserName={currentUser?.displayName || currentUser?.username || 'สมาชิก'}
-        onResetComplete={(updatedBosses) => {
-          setBosses(updatedBosses);
-          saveLocalCache(updatedBosses);
-          addNotification({
-            id: `reset-all-done-${Date.now()}`,
-            type: 'success',
-            title: '↺ รีเซ็ตเวลาบอสเป็น --:--',
-            message: `รีเซ็ตเวลาเกิดบอสทั้งหมดเป็น --:-- เรียบร้อยแล้ว`,
-            timestamp: Date.now(),
-          });
-        }}
-      />
+      {isResetAllOpen && (
+        <ResetAllTimesModal
+          isOpen={true}
+          onClose={() => setIsResetAllOpen(false)}
+          bosses={bosses}
+          currentServer={currentTab}
+          mainServerTag={settings.mainServerTag || 'T3'}
+          subServerTag={settings.subServerTag || 'S1'}
+          sheetConfig={sheetConfig}
+          currentUserName={currentUser?.displayName || currentUser?.username || 'สมาชิก'}
+          onResetComplete={(updatedBosses) => {
+            setBosses(updatedBosses);
+            saveLocalCache(updatedBosses);
+            addNotification({
+              id: `reset-all-done-${Date.now()}`,
+              type: 'success',
+              title: '↺ รีเซ็ตเวลาบอสเป็น --:--',
+              message: `รีเซ็ตเวลาเกิดบอสทั้งหมดเป็น --:-- เรียบร้อยแล้ว`,
+              timestamp: Date.now(),
+            });
+          }}
+        />
+      )}
 
-      <AdminModal
-        isOpen={isAdminOpen}
-        onClose={() => setIsAdminOpen(false)}
-        users={users}
-        onCreateUser={handleCreateUserByAdmin}
-        onUpdateUser={handleUpdateUserByAdmin}
-        onDeleteUser={handleDeleteUserByAdmin}
-        onRestoreBackup={handleRestoreBackup}
-      />
+      {isAdminOpen && (
+        <AdminModal
+          isOpen={true}
+          onClose={() => setIsAdminOpen(false)}
+          users={users}
+          onCreateUser={handleCreateUserByAdmin}
+          onUpdateUser={handleUpdateUserByAdmin}
+          onDeleteUser={handleDeleteUserByAdmin}
+          onRestoreBackup={handleRestoreBackup}
+        />
+      )}
 
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        currentUser={currentUser}
-        googleUser={googleUser}
-        onLoginGuildUser={handleLoginGuildUser}
-        onLoginGoogle={handleGoogleSignIn}
-        onRegister={handleRegisterUser}
-        onLogout={handleLogout}
-      />
+      {isAuthOpen && (
+        <AuthModal
+          isOpen={true}
+          onClose={() => setIsAuthOpen(false)}
+          currentUser={currentUser}
+          onLoginGuildUser={handleLoginGuildUser}
+          onRegister={handleRegisterUser}
+          onLogout={handleLogout}
+        />
+      )}
     </div>
   );
 }

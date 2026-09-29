@@ -1,15 +1,12 @@
 import React, { useState } from 'react';
 import { X, LogIn, UserPlus, KeyRound, User as UserIcon, Shield, CheckCircle2 } from 'lucide-react';
 import { UserAccount } from '../types/boss';
-import { User as FirebaseUser } from 'firebase/auth';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: UserAccount | null;
-  googleUser: FirebaseUser | null;
   onLoginGuildUser: (username: string, pass: string) => Promise<boolean>;
-  onLoginGoogle: () => Promise<void>;
   onRegister: (data: { username: string; displayName: string; password?: string }) => Promise<boolean>;
   onLogout: () => void;
 }
@@ -18,14 +15,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   currentUser,
-  googleUser,
   onLoginGuildUser,
-  onLoginGoogle,
   onRegister,
   onLogout,
 }) => {
-  if (!isOpen) return null;
-
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -69,24 +62,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleGoogleSignInClick = async () => {
-    setErrorMsg('');
-    setLoading(true);
-    try {
-      await onLoginGoogle();
-      onClose();
-    } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'การเชื่อมต่อ Google ผิดพลาด');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Quick fill helper for testing
   const quickLoginAs = (u: string, p: string) => {
     setUsername(u);
     setPassword(p);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
@@ -139,13 +121,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </div>
                   </div>
                 </div>
-
-                {googleUser && (
-                  <div className="pt-2 border-t border-slate-800 flex items-center gap-2 text-xs text-slate-300">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span>เชื่อมต่อกับ Google: {googleUser.email}</span>
-                  </div>
-                )}
               </div>
 
               <div className="flex gap-2">
@@ -164,28 +139,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           ) : (
             /* Login & Register Forms */
             <div className="space-y-4">
-              {/* Google Sign In Official Styled Button */}
-              <div>
+              {/* Tab Selector: Login vs Register */}
+              <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
                 <button
                   type="button"
-                  onClick={handleGoogleSignInClick}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-slate-700 bg-white hover:bg-slate-100 text-slate-800 font-semibold text-xs sm:text-sm shadow-sm transition disabled:opacity-50"
+                  onClick={() => {
+                    setMode('login');
+                    setErrorMsg('');
+                  }}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    mode === 'login'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 48 48">
-                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-                  </svg>
-                  <span>เข้าสู่ระบบด้วย Google (เชื่อมสิทธิ์ชีต)</span>
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>เข้าสู่ระบบด้วย ID</span>
                 </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-px bg-slate-800" />
-                <span className="text-[11px] text-slate-500 uppercase tracking-wider">หรือเข้าด้วย ID กิลด์</span>
-                <div className="flex-1 h-px bg-slate-800" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('register');
+                    setErrorMsg('');
+                  }}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    mode === 'register'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>ลงทะเบียน ID ใหม่</span>
+                </button>
               </div>
 
               {/* Error Message */}
@@ -196,55 +181,56 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
 
               {mode === 'login' ? (
-                <form onSubmit={handleGuildLogin} className="space-y-3">
+                <form onSubmit={handleGuildLogin} className="space-y-3.5">
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Username (ชื่อผู้ใช้)
+                      Username (ชื่อผู้ใช้ / ID) *
                     </label>
                     <div className="relative">
                       <UserIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                       <input
                         type="text"
                         required
-                        placeholder="admin หรือ guest"
+                        autoFocus
+                        placeholder="กรอกชื่อผู้ใช้ เช่น pae123 หรือ admin"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
                       />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Password (รหัสผ่าน)
+                      Password (รหัสผ่าน) *
                     </label>
                     <div className="relative">
                       <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                       <input
                         type="password"
                         required
-                        placeholder="••••••••"
+                        placeholder="กรอกรหัสผ่าน (เริ่มต้น: 123456)"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
                       />
                     </div>
                   </div>
 
                   {/* Quick autofill helper */}
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400 pt-1">
-                    <span>กรอกด่วน:</span>
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400 pt-0.5">
+                    <span>บัญชีแนะนำ:</span>
                     <button
                       type="button"
                       onClick={() => quickLoginAs('admin', 'admin123')}
-                      className="px-2 py-0.5 rounded bg-slate-800 text-amber-300 hover:bg-slate-700 border border-slate-700"
+                      className="px-2 py-1 rounded-lg bg-slate-800 text-amber-300 hover:bg-slate-700 border border-slate-700 font-medium"
                     >
                       👑 แอดมิน (admin)
                     </button>
                     <button
                       type="button"
                       onClick={() => quickLoginAs('guest', '123456')}
-                      className="px-2 py-0.5 rounded bg-slate-800 text-blue-300 hover:bg-slate-700 border border-slate-700"
+                      className="px-2 py-1 rounded-lg bg-slate-800 text-blue-300 hover:bg-slate-700 border border-slate-700 font-medium"
                     >
                       🛡️ สมาชิก (guest)
                     </button>
@@ -253,58 +239,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-amber-600/30 transition flex items-center justify-center gap-2"
+                    className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs sm:text-sm shadow-md shadow-amber-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
                   >
                     <LogIn className="w-4 h-4" />
-                    <span>เข้าสู่ระบบ</span>
+                    <span>{loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบด้วย ID'}</span>
                   </button>
-
-                  <div className="text-center pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('register');
-                        setErrorMsg('');
-                      }}
-                      className="text-xs text-slate-400 hover:text-amber-400"
-                    >
-                      ยังไม่มีบัญชี? <span className="font-semibold text-amber-400 underline">ลงทะเบียนใหม่</span>
-                    </button>
-                  </div>
                 </form>
               ) : (
                 <form onSubmit={handleRegisterSubmit} className="space-y-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Username (ชื่อผู้ใช้) *
+                      Username (ชื่อผู้ใช้สำหรับเข้าสู่ระบบ) *
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="เช่น player01"
+                      placeholder="เช่น pae123"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                      className="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      ชื่อแสดงในกิลด์ / ฉายา *
+                      ชื่อแสดงในกิลด์ / ชื่อในเกม *
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="เช่น ธนูเทพแดนหน้า"
+                      placeholder="เช่น pae123 หรือ เป้ แดนหน้า"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                      className="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      รหัสผ่าน *
+                      รหัสผ่าน (อย่างน้อย 4 ตัวอักษร) *
                     </label>
                     <input
                       type="password"
@@ -312,31 +285,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                      className="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-amber-600/30 transition flex items-center justify-center gap-2"
+                    className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs sm:text-sm shadow-md shadow-amber-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
                   >
                     <UserPlus className="w-4 h-4" />
-                    <span>ลงทะเบียนเข้าใช้งาน</span>
+                    <span>{loading ? 'กำลังลงทะเบียน...' : 'ลงทะเบียนและเข้าใช้งาน'}</span>
                   </button>
-
-                  <div className="text-center pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('login');
-                        setErrorMsg('');
-                      }}
-                      className="text-xs text-slate-400 hover:text-amber-400"
-                    >
-                      มีบัญชีอยู่แล้ว? <span className="font-semibold text-amber-400 underline">เข้าสู่ระบบที่นี่</span>
-                    </button>
-                  </div>
                 </form>
               )}
             </div>

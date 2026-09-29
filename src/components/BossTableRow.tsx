@@ -53,6 +53,10 @@ export const BossTableRow: React.FC<BossTableRowProps> = ({
       const now = new Date();
       const target = new Date();
       target.setHours(hrs, mins, 0, 0);
+      // If entered time is earlier today by more than 1 hour, assume user meant tomorrow
+      if (target.getTime() < now.getTime() - 60 * 60 * 1000) {
+        target.setDate(target.getDate() + 1);
+      }
       onQuickUpdateTime(boss.id, target.toISOString());
     }
     setIsEditingTime(false);

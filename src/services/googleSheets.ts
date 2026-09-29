@@ -554,3 +554,61 @@ export async function writeRebootTimeToGoogleSheet(
   }
 }
 
+/**
+ * Export bosses data to CSV string with UTF-8 BOM for Thai language support
+ */
+export function exportBossesToCSV(bosses: Boss[], server: 'main' | 'sub' | 'all' = 'all'): string {
+  const filtered = server === 'all' ? bosses : bosses.filter((b) => b.server === server);
+
+  const headers = ['ลำดับ', 'ชื่อบอส', 'วันที่ตาย', 'เวลาตาย', 'วันที่เกิด', 'เวลาเกิด', 'สถานที่', 'รอบเกิด(นาที)', 'เซิร์ฟเวอร์', 'สถานะ'];
+  const rows = filtered.map((b, idx) => {
+    let killDate = '-';
+    let killTime = '-';
+    if (b.lastKilledAt) {
+      const kd = new Date(b.lastKilledAt);
+      killDate = `${String(kd.getDate()).padStart(2, '0')}/${String(kd.getMonth() + 1).padStart(2, '0')}/${kd.getFullYear()}`;
+      killTime = `${String(kd.getHours()).padStart(2, '0')}:${String(kd.getMinutes()).padStart(2, '0')}:${String(kd.getSeconds()).padStart(2, '0')}`;
+    }
+
+    let spawnDate = '-';
+    let spawnTime = '-';
+    if (b.nextSpawnAt) {
+      const sd = new Date(b.nextSpawnAt);
+      spawnDate = `${String(sd.getDate()).padStart(2, '0')}/${String(sd.getMonth() + 1).padStart(2, '0')}/${sd.getFullYear()}`;
+      spawnTime = `${String(sd.getHours()).padStart(2, '0')}:${String(sd.getMinutes()).padStart(2, '0')}:${String(sd.getSeconds()).padStart(2, '0')}`;
+    }
+
+    const serverLabel = b.server === 'main' ? (b.serverTag || 'เซิร์ฟหลัก T3') : (b.serverTag || 'เซิร์ฟรอง S1');
+    const isSpawned = b.nextSpawnAt ? new Date(b.nextSpawnAt).getTime() <= Date.now() : false;
+    const status = isSpawned ? 'เกิดแล้ว' : (b.nextSpawnAt ? 'กำลังรอเกิด' : 'ยังไม่มีเวลา');
+
+    return [
+      String(b.bossNumber || idx + 1),
+      `"${b.name.replace(/"/g, '""')}"`,
+      killDate,
+      killTime,
+      spawnDate,
+      spawnTime,
+      `"${(b.location || '-').replace(/"/g, '""')}"`,
+      String(b.respawnMinutes),
+      `"${serverLabel}"`,
+      status,
+    ].join(',');
+  });
+
+  // UTF-8 Byte Order Mark for Thai characters in Excel and Google Sheets
+  return '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+}
+
+export function triggerCSVDownload(csvContent: string, filename: string) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+

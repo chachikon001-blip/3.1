@@ -166,7 +166,7 @@ function createInitialBossList(): Boss[] {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 const app = express();
 
 app.use(express.json({ limit: '10mb' }));
@@ -417,25 +417,32 @@ app.get('/api/realtime/stream', (req: Request, res: Response) => {
 // 3. Boss Actions
 // Record Kill (Boss Dead Now / Update Time: takes current spawn time + respawnMinutes)
 app.post('/api/bosses/kill', (req: Request, res: Response) => {
-  const { bossId, killedBy, killedAt } = req.body;
+  const { bossId, killedBy, killedAt, nextSpawnAt } = req.body;
   const boss = state.bosses.find(b => b.id === bossId);
   if (!boss) {
     return res.status(404).json({ error: 'ไม่พบบอสที่ระบุ' });
   }
 
-  // Calculate new spawn time: เอาเวลาเกิดเดิมมา + กับรอบเกิด
-  let newSpawnTime: Date;
-  if (boss.nextSpawnAt) {
+  const now = Date.now();
+  if (nextSpawnAt) {
+    boss.nextSpawnAt = nextSpawnAt;
+    boss.lastKilledAt = killedAt || new Date().toISOString();
+  } else if (boss.nextSpawnAt) {
     const baseSpawn = new Date(boss.nextSpawnAt).getTime();
-    newSpawnTime = new Date(baseSpawn + boss.respawnMinutes * 60 * 1000);
-    boss.lastKilledAt = boss.nextSpawnAt;
+    let calculated = baseSpawn + boss.respawnMinutes * 60 * 1000;
+    if (calculated <= now) {
+      calculated = now + boss.respawnMinutes * 60 * 1000;
+      boss.lastKilledAt = new Date().toISOString();
+    } else {
+      boss.lastKilledAt = boss.nextSpawnAt;
+    }
+    boss.nextSpawnAt = new Date(calculated).toISOString();
   } else {
     const killDate = killedAt ? new Date(killedAt) : new Date();
     boss.lastKilledAt = killDate.toISOString();
-    newSpawnTime = new Date(killDate.getTime() + boss.respawnMinutes * 60 * 1000);
+    boss.nextSpawnAt = new Date(killDate.getTime() + boss.respawnMinutes * 60 * 1000).toISOString();
   }
 
-  boss.nextSpawnAt = newSpawnTime.toISOString();
   boss.killedBy = killedBy || 'สมาชิกกิลด์';
   boss.notifiedStages = []; // reset notification stages for next cycle
 
@@ -643,8 +650,11 @@ app.post('/api/server/reboot', (req: Request, res: Response) => {
     if (server === 'all') {
       state.bosses = incomingBosses;
     } else {
-      const otherBosses = state.bosses.filter(b => b.server !== server);
-      state.bosses = [...otherBosses, ...incomingBosses];
+      // Merge by ID to guarantee no duplicates
+      const bossMap = new Map<string, Boss>();
+      state.bosses.forEach(b => bossMap.set(b.id, b));
+      incomingBosses.forEach(b => bossMap.set(b.id, b));
+      state.bosses = Array.from(bossMap.values());
     }
   }
 
@@ -1041,6 +1051,58 @@ app.post('/api/sheets/sync', async (req: Request, res: Response) => {
   }
 });
 
+// Automatic background sync from Google Sheets every 30 seconds to keep all devices linked
+async function performAutoGoogleSheetSync() {
+  if (!state.sheetConfig?.autoSync || !state.sheetConfig?.sheetId) return;
+
+  try {
+    const updatedBosses: Boss[] = [];
+    const { sheetId, mainGid, subGid } = state.sheetConfig;
+
+    if (mainGid) {
+      const resMain = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${mainGid}`);
+      if (resMain.ok) {
+        const text = await resMain.text();
+        const mainList = parseSheetCSVToBosses(text, 'main');
+        updatedBosses.push(...mainList);
+      }
+    }
+
+    if (subGid) {
+      const resSub = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${subGid}`);
+      if (resSub.ok) {
+        const text = await resSub.text();
+        const subList = parseSheetCSVToBosses(text, 'sub');
+        updatedBosses.push(...subList);
+      }
+    }
+
+    if (updatedBosses.length > 0) {
+      let hasChanges = false;
+      for (const updated of updatedBosses) {
+        const existing = state.bosses.find(b => b.id === updated.id || (b.name === updated.name && b.server === updated.server));
+        if (existing) {
+          if (existing.nextSpawnAt !== updated.nextSpawnAt || existing.lastKilledAt !== updated.lastKilledAt) {
+            existing.nextSpawnAt = updated.nextSpawnAt;
+            existing.lastKilledAt = updated.lastKilledAt;
+            existing.bossNumber = updated.bossNumber ?? existing.bossNumber;
+            hasChanges = true;
+          }
+        }
+      }
+
+      if (hasChanges) {
+        state.sheetConfig.lastSyncedAt = new Date().toISOString();
+        persistState();
+        broadcastSSE('state_update', state);
+      }
+    }
+  } catch (err) {
+    // Background sync error - silently ignore
+  }
+}
+setInterval(performAutoGoogleSheetSync, 30000);
+
 // User Management & Auth
 app.post('/api/users/login', (req: Request, res: Response) => {
   const { username, password } = req.body;
@@ -1146,9 +1208,16 @@ app.post('/api/restore', (req: Request, res: Response) => {
   res.json({ success: true, count: state.bosses.length });
 });
 
+// Health check endpoint for Cloud Run
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).send('OK');
+});
+
 // Start dev or production server
 async function startServer() {
-  const isProduction = process.env.NODE_ENV === 'production';
+  const distPath = path.resolve(__dirname, 'dist');
+  const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
+  const isProduction = process.env.NODE_ENV === 'production' || (hasDist && process.env.NODE_ENV !== 'development');
 
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
@@ -1158,15 +1227,21 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.resolve(__dirname, 'dist');
-    app.use(express.static(distPath));
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+    }
     app.get('*', (_req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(200).send('Boss Timer Pro backend ready.');
+      }
     });
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server listening on port ${PORT} (dev mode: ${!isProduction})`);
+    console.log(`Server listening on port ${PORT} (production: ${isProduction})`);
   });
 }
 

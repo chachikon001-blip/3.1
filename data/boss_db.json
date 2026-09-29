@@ -7,9 +7,9 @@
       "serverTag": "T3",
       "location": "ตามแมพ / พื้นที่ล่า",
       "respawnMinutes": 210,
-      "lastKilledAt": "2026-09-26T09:01:00.000Z",
-      "nextSpawnAt": "2026-09-26T12:31:00.000Z",
-      "killedBy": "Google Sheet",
+      "lastKilledAt": "2026-09-29T13:15:07.197Z",
+      "nextSpawnAt": "2026-09-29T16:45:07.197Z",
+      "killedBy": "Admin Test",
       "notifiedStages": [],
       "pinned": true,
       "bossNumber": 25
@@ -23,7 +23,7 @@
       "respawnMinutes": 180,
       "lastKilledAt": "2026-09-26T09:32:00.000Z",
       "nextSpawnAt": "2026-09-26T12:32:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": true,
       "bossNumber": 24
@@ -37,7 +37,7 @@
       "respawnMinutes": 420,
       "lastKilledAt": "2026-09-26T05:32:00.000Z",
       "nextSpawnAt": "2026-09-26T12:32:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": true,
       "bossNumber": 21
@@ -51,7 +51,7 @@
       "respawnMinutes": 420,
       "lastKilledAt": "2026-09-26T05:32:00.000Z",
       "nextSpawnAt": "2026-09-26T12:32:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 13
@@ -65,7 +65,7 @@
       "respawnMinutes": 420,
       "lastKilledAt": "2026-09-26T05:33:00.000Z",
       "nextSpawnAt": "2026-09-26T12:33:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 14
@@ -79,7 +79,7 @@
       "respawnMinutes": 120,
       "lastKilledAt": "2026-09-26T10:43:00.000Z",
       "nextSpawnAt": "2026-09-26T12:43:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 1
@@ -93,7 +93,7 @@
       "respawnMinutes": 480,
       "lastKilledAt": "2026-09-26T04:43:00.000Z",
       "nextSpawnAt": "2026-09-26T12:43:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 37
@@ -107,7 +107,7 @@
       "respawnMinutes": 480,
       "lastKilledAt": "2026-09-26T04:43:00.000Z",
       "nextSpawnAt": "2026-09-26T12:43:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 29
@@ -121,7 +121,7 @@
       "respawnMinutes": 480,
       "lastKilledAt": "2026-09-26T04:43:00.000Z",
       "nextSpawnAt": "2026-09-26T12:43:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 7
@@ -135,7 +135,7 @@
       "respawnMinutes": 480,
       "lastKilledAt": "2026-09-26T04:45:00.000Z",
       "nextSpawnAt": "2026-09-26T12:45:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 30
@@ -149,7 +149,7 @@
       "respawnMinutes": 720,
       "lastKilledAt": "2026-09-26T00:45:00.000Z",
       "nextSpawnAt": "2026-09-26T12:45:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 10
@@ -163,7 +163,7 @@
       "respawnMinutes": 720,
       "lastKilledAt": "2026-09-26T00:46:00.000Z",
       "nextSpawnAt": "2026-09-26T12:46:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 35
@@ -177,7 +177,7 @@
       "respawnMinutes": 480,
       "lastKilledAt": "2026-09-26T04:48:00.000Z",
       "nextSpawnAt": "2026-09-26T12:48:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 15
@@ -191,7 +191,7 @@
       "respawnMinutes": 720,
       "lastKilledAt": "2026-09-26T00:50:00.000Z",
       "nextSpawnAt": "2026-09-26T12:50:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 39
@@ -203,9 +203,9 @@
       "serverTag": "T3",
       "location": "ตามแมพ / พื้นที่ล่า",
       "respawnMinutes": 480,
-      "lastKilledAt": "2026-09-26T04:51:00.000Z",
-      "nextSpawnAt": "2026-09-26T12:51:00.000Z",
-      "killedBy": "Google Sheet",
+      "lastKilledAt": "2026-09-25T22:00:00.000Z",
+      "nextSpawnAt": "2026-09-26T06:00:00.000Z",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 9
@@ -219,7 +219,7 @@
       "respawnMinutes": 720,
       "lastKilledAt": "2026-09-26T00:51:00.000Z",
       "nextSpawnAt": "2026-09-26T12:51:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 42
@@ -233,7 +233,7 @@
       "respawnMinutes": 720,
       "lastKilledAt": "2026-09-26T00:53:00.000Z",
       "nextSpawnAt": "2026-09-26T12:53:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 38
@@ -247,7 +247,7 @@
       "respawnMinutes": 150,
       "lastKilledAt": "2026-09-26T10:43:00.000Z",
       "nextSpawnAt": "2026-09-26T13:13:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 22
@@ -261,7 +261,7 @@
       "respawnMinutes": 450,
       "lastKilledAt": "2026-09-26T05:43:00.000Z",
       "nextSpawnAt": "2026-09-26T13:13:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 28
@@ -275,7 +275,7 @@
       "respawnMinutes": 270,
       "lastKilledAt": "2026-09-26T08:44:00.000Z",
       "nextSpawnAt": "2026-09-26T13:14:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 18
@@ -289,7 +289,7 @@
       "respawnMinutes": 240,
       "lastKilledAt": "2026-09-26T10:42:00.000Z",
       "nextSpawnAt": "2026-09-26T14:42:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 16
@@ -303,7 +303,7 @@
       "respawnMinutes": 360,
       "lastKilledAt": "2026-09-26T08:42:00.000Z",
       "nextSpawnAt": "2026-09-26T14:42:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 34
@@ -317,7 +317,7 @@
       "respawnMinutes": 360,
       "lastKilledAt": "2026-09-26T08:42:00.000Z",
       "nextSpawnAt": "2026-09-26T14:42:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 6
@@ -331,7 +331,7 @@
       "respawnMinutes": 240,
       "lastKilledAt": "2026-09-26T10:43:00.000Z",
       "nextSpawnAt": "2026-09-26T14:43:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 17
@@ -345,7 +345,7 @@
       "respawnMinutes": 360,
       "lastKilledAt": "2026-09-26T08:43:00.000Z",
       "nextSpawnAt": "2026-09-26T14:43:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 20
@@ -359,7 +359,7 @@
       "respawnMinutes": 180,
       "lastKilledAt": "2026-09-26T11:44:00.000Z",
       "nextSpawnAt": "2026-09-26T14:44:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 23
@@ -373,7 +373,7 @@
       "respawnMinutes": 360,
       "lastKilledAt": "2026-09-26T08:45:00.000Z",
       "nextSpawnAt": "2026-09-26T14:45:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 8
@@ -387,7 +387,7 @@
       "respawnMinutes": 210,
       "lastKilledAt": "2026-09-26T11:43:00.000Z",
       "nextSpawnAt": "2026-09-26T15:13:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 19
@@ -401,7 +401,7 @@
       "respawnMinutes": 480,
       "lastKilledAt": "2026-09-26T07:31:00.000Z",
       "nextSpawnAt": "2026-09-26T15:31:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 12
@@ -415,7 +415,7 @@
       "respawnMinutes": 240,
       "lastKilledAt": "2026-09-26T11:33:00.000Z",
       "nextSpawnAt": "2026-09-26T15:33:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 4
@@ -429,7 +429,7 @@
       "respawnMinutes": 300,
       "lastKilledAt": "2026-09-26T10:42:00.000Z",
       "nextSpawnAt": "2026-09-26T15:42:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 27
@@ -443,7 +443,7 @@
       "respawnMinutes": 1980,
       "lastKilledAt": "2026-09-25T06:42:00.000Z",
       "nextSpawnAt": "2026-09-26T15:42:00.000Z",
-      "killedBy": "Google Sheet",
+      "killedBy": "หัวหน้ากิลด์ (Admin)",
       "notifiedStages": [],
       "pinned": false,
       "bossNumber": 45
@@ -654,7 +654,8 @@
       "nextSpawnAt": null,
       "notifiedStages": [],
       "pinned": true,
-      "bossNumber": 1
+      "bossNumber": 1,
+      "killedBy": "หัวหน้ากิลด์ (Admin)"
     },
     {
       "id": "sub-sheet-2-เทมเพสต์___Valefar",
@@ -667,7 +668,8 @@
       "nextSpawnAt": null,
       "notifiedStages": [],
       "pinned": true,
-      "bossNumber": 25
+      "bossNumber": 25,
+      "killedBy": "หัวหน้ากิลด์ (Admin)"
     },
     {
       "id": "sub-sheet-3-เอนคูรา___Enkura",
@@ -784,7 +786,8 @@
       "nextSpawnAt": null,
       "notifiedStages": [],
       "pinned": false,
-      "bossNumber": 34
+      "bossNumber": 34,
+      "notes": ""
     },
     {
       "id": "sub-sheet-12-เบฮีมอธ___Behemoth",
@@ -1247,6 +1250,25 @@
       "createdAt": "2026-09-27T10:49:51.670Z",
       "active": true,
       "passwordHash": "123456"
+    },
+    {
+      "id": "user-1790675174904",
+      "username": "test99",
+      "displayName": "test99",
+      "role": "member",
+      "passwordHash": "123456",
+      "createdAt": "2026-09-29T09:46:14.904Z",
+      "active": true
+    },
+    {
+      "id": "user-1790675292767",
+      "username": "pae123",
+      "displayName": "pae123",
+      "role": "member",
+      "passwordHash": "123456",
+      "createdAt": "2026-09-29T09:48:12.767Z",
+      "active": true,
+      "lastLoginAt": "2026-09-29T09:48:15.463Z"
     }
   ],
   "settings": {
@@ -1274,7 +1296,7 @@
     "subGid": "82332950",
     "autoSync": true,
     "syncIntervalSeconds": 60,
-    "lastSyncedAt": "2026-09-28T19:07:05.233Z"
+    "lastSyncedAt": "2026-09-29T13:08:30.521Z"
   },
-  "lastUpdated": "2026-09-28T19:07:05.233Z"
+  "lastUpdated": "2026-09-29T13:15:07.197Z"
 }

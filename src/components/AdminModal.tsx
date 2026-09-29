@@ -32,8 +32,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onDeleteUser,
   onRestoreBackup,
 }) => {
-  if (!isOpen) return null;
-
   const [activeTab, setActiveTab] = useState<'users' | 'create' | 'backup'>('users');
 
   // Form states for creating user
@@ -90,6 +88,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     };
     reader.readAsText(file);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">

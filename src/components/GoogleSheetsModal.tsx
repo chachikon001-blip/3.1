@@ -12,8 +12,15 @@ import {
   Swords,
   Sparkles
 } from 'lucide-react';
-import { fetchPublicGoogleSheet, fetchSheetsDataWithOAuth, writeBossesToGoogleSheet, convertSheetRowsToBosses } from '../services/googleSheets';
-import { googleSignIn, getAccessToken } from '../services/firebase';
+import { 
+  fetchPublicGoogleSheet, 
+  fetchSheetsDataWithOAuth, 
+  writeBossesToGoogleSheet, 
+  convertSheetRowsToBosses,
+  exportBossesToCSV,
+  triggerCSVDownload 
+} from '../services/googleSheets';
+import { googleSignIn, getAccessToken, logoutGoogle, initAuth } from '../services/firebase';
 
 interface GoogleSheetsModalProps {
   isOpen: boolean;
@@ -32,17 +39,70 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
   onImportBosses,
   onUpdateSheetConfig,
 }) => {
-  if (!isOpen) return null;
-
   const [sheetId, setSheetId] = useState(sheetConfig.sheetId || '1v9JBi82XouNyp9VotX9n4Kix4JX5EfXFrIJoXU-fCuc');
   const [mainGid, setMainGid] = useState(sheetConfig.mainGid || '1587945636');
   const [subGid, setSubGid] = useState(sheetConfig.subGid || '82332950');
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+  const [isGoogleAuthed, setIsGoogleAuthed] = useState<boolean>(false);
 
   // Target server for write operations ('main' | 'sub' | 'all')
   const [targetExportServer, setTargetExportServer] = useState<'main' | 'sub' | 'all'>('all');
   const [showConfirmWrite, setShowConfirmWrite] = useState(false);
+
+  // Check auth state on load
+  React.useEffect(() => {
+    const unsub = initAuth(
+      (user, token) => {
+        if (user) {
+          setIsGoogleAuthed(true);
+          setGoogleEmail(user.email || null);
+        } else {
+          setIsGoogleAuthed(false);
+          setGoogleEmail(null);
+        }
+      },
+      () => {
+        setIsGoogleAuthed(false);
+        setGoogleEmail(null);
+      }
+    );
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, []);
+
+  const handleConnectGoogle = async () => {
+    setLoading(true);
+    setStatusMsg(null);
+    try {
+      const res = await googleSignIn();
+      if (res?.user && res?.accessToken) {
+        setIsGoogleAuthed(true);
+        setGoogleEmail(res.user.email || null);
+        setStatusMsg({
+          type: 'success',
+          text: `เชื่อมต่อบัญชี Google สำเร็จ (${res.user.email}) พร้อมใช้งานสิทธิ์เขียน/อ่าน Google Sheets`,
+        });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'ไม่สามารถเชื่อมต่อ Google ได้';
+      setStatusMsg({ type: 'error', text: msg });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    await logoutGoogle();
+    setIsGoogleAuthed(false);
+    setGoogleEmail(null);
+    setStatusMsg({
+      type: 'success',
+      text: 'ตัดการเชื่อมต่อ Google Sheets แล้ว',
+    });
+  };
 
   const mainSheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit#gid=${mainGid}`;
   const subSheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit#gid=${subGid}`;
@@ -117,6 +177,23 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
     }
   };
 
+  // Download CSV directly for easy Excel / Google Sheets import
+  const handleDownloadCSV = (server: 'main' | 'sub' | 'all') => {
+    try {
+      const csv = exportBossesToCSV(bosses, server);
+      const serverLabel = server === 'all' ? 'both-servers' : server === 'main' ? 'main-server-t3' : 'sub-server-s1';
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+      triggerCSVDownload(csv, `boss-timer-${serverLabel}-${dateStr}.csv`);
+      setStatusMsg({
+        type: 'success',
+        text: `ดาวน์โหลดไฟล์ CSV เรียบร้อยแล้ว! สามารถเปิดใน Excel หรือกด "นำเข้า" ใน Google Sheet ได้ทันทีโดยไม่ต้องเชื่อมต่อ API`,
+      });
+    } catch {
+      setStatusMsg({ type: 'error', text: 'ไม่สามารถสร้างไฟล์ CSV ได้' });
+    }
+  };
+
   // Perform write to sheet after explicit confirmation dialog
   const executeWriteToSheet = async () => {
     setShowConfirmWrite(false);
@@ -126,12 +203,20 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
     try {
       let token = await getAccessToken();
       if (!token) {
+        // Trigger Google Sign In popup to request spreadsheet OAuth token
         const signResult = await googleSignIn();
         token = signResult?.accessToken || null;
+        if (signResult?.user?.email) {
+          setGoogleEmail(signResult.user.email);
+          setIsGoogleAuthed(true);
+        }
       }
 
       if (!token) {
-        setStatusMsg({ type: 'error', text: 'กรุณาเข้าสู่ระบบ Google เพื่ออนุญาตการเขียนข้อมูลลงชีต' });
+        setStatusMsg({
+          type: 'error',
+          text: 'กรุณาเชื่อมต่อบัญชี Google เพื่ออนุญาตการเขียนข้อมูลลง Google Sheets หรือใช้ปุ่ม "ดาวน์โหลด CSV สำหรับชีต"',
+        });
         setLoading(false);
         return;
       }
@@ -155,10 +240,7 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
         text: `บันทึกข้อมูลบอส ${bossesToWrite.length} ตัวลง Google Sheet เรียบร้อยแล้ว!`,
       });
     } catch (err: unknown) {
-      let errMsg = err instanceof Error ? err.message : 'ไม่สามารถเขียนข้อมูลลง Google Sheet ได้';
-      if (errMsg.includes('insufficient authentication scopes') || errMsg.includes('insufficient') || errMsg.includes('PERMISSION_DENIED')) {
-        errMsg = 'สิทธิ์การเข้าถึง Google Sheets หมดอายุหรือยังไม่ได้รับอนุญาต กรุณากด "เข้าสู่ระบบด้วย Google" ที่ด้านบนเพื่อยินยอมสิทธิ์ Google Sheets';
-      }
+      const errMsg = err instanceof Error ? err.message : 'ไม่สามารถเขียนข้อมูลลง Google Sheet ได้';
       setStatusMsg({ type: 'error', text: errMsg });
     } finally {
       setLoading(false);
@@ -169,6 +251,8 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
     setTargetExportServer(server);
     setShowConfirmWrite(true);
   };
+
+  if (!isOpen) return null;
 
   return (
     <>
@@ -235,6 +319,58 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                 </a>
               </div>
             </div>
+
+            {/* Google OAuth Authorization Banner */}
+            {isGoogleAuthed ? (
+              <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 shrink-0">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-emerald-300">
+                      เชื่อมต่อสิทธิ์ Google Sheets แล้ว (OAuth สำเร็จ)
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5 truncate max-w-[220px] sm:max-w-xs">
+                      บัญชี: <span className="text-slate-200 font-mono">{googleEmail || 'Google User'}</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDisconnectGoogle}
+                  disabled={loading}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-red-400 text-xs font-medium border border-slate-700 transition shrink-0"
+                >
+                  ตัดการเชื่อมต่อ
+                </button>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <span>🔐 สิทธิ์ Google Sheets OAuth (สำหรับเขียนข้อมูลลงชีต)</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    เชื่อมต่อบัญชี Google เพื่อให้แอปเขียนข้อมูลเวลาเกิดบอสลง Google Sheets ได้
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleConnectGoogle}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 py-2 px-3.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-medium transition shadow-sm active:scale-95 disabled:opacity-50 shrink-0"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 48 48">
+                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                  </svg>
+                  <span>เชื่อมต่อสิทธิ์ Google</span>
+                </button>
+              </div>
+            )}
 
             {/* Inputs: Sheet ID, Main GID, Sub GID */}
             <div className="space-y-3 p-3 bg-slate-950/70 border border-slate-800 rounded-xl">
@@ -389,6 +525,43 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                 >
                   <UploadCloud className="w-3.5 h-3.5" />
                   <span>ส่งออกทั้ง 2 เซิร์ฟ</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick CSV Download (Zero friction for Google Sheets) */}
+            <div className="space-y-2 pt-2 border-t border-slate-800/80">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span>ดาวน์โหลดไฟล์ CSV (เปิดใน Google Sheets / Excel ได้ทันที):</span>
+                </span>
+                <span className="text-[10px] text-slate-500">ไม่ต้องใช้รหัสผ่าน Google</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadCSV('main')}
+                  className="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 transition flex items-center justify-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5 text-blue-400" />
+                  <span>CSV เซิร์ฟหลัก</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadCSV('sub')}
+                  className="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 transition flex items-center justify-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5 text-purple-400" />
+                  <span>CSV เซิร์ฟรอง</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadCSV('all')}
+                  className="py-2 px-2.5 rounded-xl bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/40 text-xs font-bold text-amber-300 transition flex items-center justify-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span>CSV ทั้ง 2 เซิร์ฟ</span>
                 </button>
               </div>
             </div>

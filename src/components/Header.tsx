@@ -17,11 +17,9 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { UserAccount } from '../types/boss';
-import { User as FirebaseUser } from 'firebase/auth';
 
 interface HeaderProps {
   currentUser: UserAccount | null;
-  googleUser: FirebaseUser | null;
   isOnline: boolean;
   isDarkMode: boolean;
   isSoundEnabled?: boolean;
@@ -39,7 +37,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   currentUser,
-  googleUser,
   isOnline,
   isDarkMode,
   isSoundEnabled = true,

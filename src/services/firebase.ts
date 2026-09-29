@@ -16,24 +16,46 @@ provider.setCustomParameters({
 let isSigningIn = false;
 let cachedAccessToken: string | null = null;
 
+export const setAccessToken = (token: string | null) => {
+  cachedAccessToken = token;
+  try {
+    if (token) {
+      localStorage.setItem('l2m_google_sheet_token', token);
+    } else {
+      localStorage.removeItem('l2m_google_sheet_token');
+    }
+  } catch {
+    // ignore
+  }
+};
+
 export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
-  return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        // If user is logged in but access token was reset (e.g. page reload),
-        // we still notify user presence but token is null until re-authenticated
-        if (onAuthSuccess) onAuthSuccess(user, '');
+  try {
+    return onAuthStateChanged(
+      auth,
+      async (user: User | null) => {
+        if (user) {
+          const token = cachedAccessToken || (typeof localStorage !== 'undefined' ? localStorage.getItem('l2m_google_sheet_token') : null) || '';
+          if (onAuthSuccess) onAuthSuccess(user, token);
+        } else {
+          cachedAccessToken = null;
+          if (onAuthFailure) onAuthFailure();
+        }
+      },
+      (error) => {
+        // Handle API key or network errors quietly
+        console.warn('Firebase Auth state notice:', error?.message || error);
+        if (onAuthFailure) onAuthFailure();
       }
-    } else {
-      cachedAccessToken = null;
-      if (onAuthFailure) onAuthFailure();
-    }
-  });
+    );
+  } catch (err) {
+    console.warn('Firebase initAuth initialization warning:', err);
+    if (onAuthFailure) onAuthFailure();
+    return () => {};
+  }
 };
 
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
@@ -46,20 +68,46 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     }
 
     cachedAccessToken = credential.accessToken;
+    setAccessToken(cachedAccessToken);
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: unknown) {
-    console.error('Sign in error:', error);
-    throw error;
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    const errorCode = (error as { code?: string })?.code || '';
+
+    if (errorCode === 'auth/api-key-not-valid' || errorMsg.includes('api-key-not-valid')) {
+      throw new Error(
+        'คีย์ Firebase API ของโปรเจกต์ (boss-timer-pro31) ยังไม่ได้เปิดใช้งาน Identity Toolkit หรือมีข้อจำกัดสิทธิ์ใน Google Cloud Console\n👉 กรุณาใช้ระบบล็อกอินด้วย ID สำหรับสมาชิกและเพื่อนๆ หรือตรวจสอบการตั้งค่า Firebase'
+      );
+    }
+
+    if (errorCode === 'auth/popup-closed-by-user') {
+      throw new Error('หน้าต่างเข้าสู่ระบบ Google ถูกปิดก่อนดำเนินการเสร็จสิ้น');
+    }
+
+    if (errorCode === 'auth/cancelled-popup-request') {
+      throw new Error('คำขอเข้าสู่ระบบถูกยกเลิก');
+    }
+
+    throw new Error(errorMsg || 'การเข้าสู่ระบบ Google ขัดข้อง กรุณาลองใหม่อีกครั้ง');
   } finally {
     isSigningIn = false;
   }
 };
 
 export const getAccessToken = async (): Promise<string | null> => {
-  return cachedAccessToken;
+  if (cachedAccessToken) return cachedAccessToken;
+  try {
+    return localStorage.getItem('l2m_google_sheet_token');
+  } catch {
+    return null;
+  }
 };
 
 export const logoutGoogle = async () => {
-  await signOut(auth);
-  cachedAccessToken = null;
+  try {
+    await signOut(auth);
+  } catch {
+    // ignore
+  }
+  setAccessToken(null);
 };

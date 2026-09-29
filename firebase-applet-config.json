@@ -1,9 +1,11 @@
 {
   "projectId": "boss-timer-pro31",
-  "appId": "1:87427381834:web:36c8889bb404730c9d04b3",
-  "apiKey": "AIzaSyA0afgMjZZdNqHL6ClrS1MeqZhyi2fcQ_w",
+  "appId": "1:87427381834:web:1bcec69eecbce3069d04b3",
+  "apiKey": "AIzaSyAOafgMjZZdNqHL6ClrS1MeqzHyi2fcQ_w",
   "authDomain": "boss-timer-pro31.firebaseapp.com",
-  "storageBucket": "boss-timer-pro31.appspot.com",
+  "storageBucket": "boss-timer-pro31.firebasestorage.app",
   "messagingSenderId": "87427381834",
-  "measurementId": "G-HKXMMJRZJM"
+  "measurementId": "",
+  "oAuthClientId": "87427381834-tsfloeagsdol05ot1nej72rqv2d8d4sm.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
 }

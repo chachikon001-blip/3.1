@@ -17,8 +17,6 @@ export const EditBossModal: React.FC<EditBossModalProps> = ({
   onSave,
   onDelete,
 }) => {
-  if (!isOpen || !boss) return null;
-
   const toLocalISOString = (dateStr: string | null) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
@@ -26,15 +24,30 @@ export const EditBossModal: React.FC<EditBossModalProps> = ({
     return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
   };
 
-  const [name, setName] = useState(boss.name);
-  const [server, setServer] = useState<'main' | 'sub'>(boss.server);
-  const [serverTag, setServerTag] = useState(boss.serverTag || (boss.server === 'main' ? 'T3' : 'S1'));
-  const [location, setLocation] = useState(boss.location);
-  const [respawnHours, setRespawnHours] = useState(Math.floor(boss.respawnMinutes / 60));
-  const [respawnMins, setRespawnMins] = useState(boss.respawnMinutes % 60);
-  const [lastKilledAt, setLastKilledAt] = useState<string>(toLocalISOString(boss.lastKilledAt));
-  const [nextSpawnAt, setNextSpawnAt] = useState<string>(toLocalISOString(boss.nextSpawnAt));
-  const [notes, setNotes] = useState(boss.notes || '');
+  const [name, setName] = useState(boss?.name || '');
+  const [server, setServer] = useState<'main' | 'sub'>(boss?.server || 'main');
+  const [serverTag, setServerTag] = useState(boss?.serverTag || (boss?.server === 'main' ? 'T3' : 'S1'));
+  const [location, setLocation] = useState(boss?.location || '');
+  const [respawnHours, setRespawnHours] = useState(Math.floor((boss?.respawnMinutes || 240) / 60));
+  const [respawnMins, setRespawnMins] = useState((boss?.respawnMinutes || 240) % 60);
+  const [lastKilledAt, setLastKilledAt] = useState<string>(toLocalISOString(boss?.lastKilledAt || null));
+  const [nextSpawnAt, setNextSpawnAt] = useState<string>(toLocalISOString(boss?.nextSpawnAt || null));
+  const [notes, setNotes] = useState(boss?.notes || '');
+
+  // Synchronize form when boss prop changes
+  React.useEffect(() => {
+    if (boss) {
+      setName(boss.name);
+      setServer(boss.server);
+      setServerTag(boss.serverTag || (boss.server === 'main' ? 'T3' : 'S1'));
+      setLocation(boss.location);
+      setRespawnHours(Math.floor(boss.respawnMinutes / 60));
+      setRespawnMins(boss.respawnMinutes % 60);
+      setLastKilledAt(toLocalISOString(boss.lastKilledAt));
+      setNextSpawnAt(toLocalISOString(boss.nextSpawnAt));
+      setNotes(boss.notes || '');
+    }
+  }, [boss]);
 
   const totalRespawnMinutes = Number(respawnHours) * 60 + Number(respawnMins);
 
@@ -58,6 +71,7 @@ export const EditBossModal: React.FC<EditBossModalProps> = ({
   };
 
   const handleSave = () => {
+    if (!boss) return;
     onSave({
       id: boss.id,
       name,
@@ -71,6 +85,8 @@ export const EditBossModal: React.FC<EditBossModalProps> = ({
     });
     onClose();
   };
+
+  if (!isOpen || !boss) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">

@@ -30,8 +30,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
   onSave,
 }) => {
-  if (!isOpen) return null;
-
   const [localSettings, setLocalSettings] = useState<NotificationSettings>({ ...settings });
   const [activeTab, setActiveTab] = useState<'audio' | 'discord' | 'line' | 'server'>('audio');
   const [testDiscordStatus, setTestDiscordStatus] = useState<{ loading: boolean; msg?: string; success?: boolean }>({ loading: false });
@@ -147,6 +145,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onSave(localSettings);
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
